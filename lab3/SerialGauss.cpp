@@ -93,3 +93,97 @@ void PrintVector (double* pVector, int Size) {
     for (i=0; i<Size; i++)
         printf("%7.4f ", pVector[i]);
 }
+
+// Function for finding the pivot row
+int FindPivotRow(double* pMatrix, int Size, int Iter) {
+    int PivotRow = -1; // Index of the pivot row
+    int MaxValue = 0; // Value of the pivot element
+    int i; // Loop variable
+
+    // Choose the row, that stores the maximum element
+    for (i=0; i<Size; i++) {
+        if ((pSerialPivotIter[i] == -1) && (fabs(pMatrix[i*Size+Iter]) > MaxValue)) {
+            PivotRow = i;
+            MaxValue = fabs(pMatrix[i*Size+Iter]);
+        }
+    }
+
+    return PivotRow;
+}
+// Function for the column elimination
+void SerialColumnElimination (double* pMatrix, double* pVector, int Pivot,
+int Iter, int Size) {
+    double PivotValue, PivotFactor;
+
+    PivotValue = pMatrix[Pivot*Size+Iter];
+
+    for (int i=0; i<Size; i++) {
+        if (pSerialPivotIter[i] == -1) {
+            PivotFactor = pMatrix[i*Size+Iter] / PivotValue;
+            for (int j=Iter; j<Size; j++) {
+                pMatrix[i*Size + j] -= PivotFactor * pMatrix[Pivot*Size+j];
+            }
+            pVector[i] -= PivotFactor * pVector[Pivot];
+        }
+    }
+}
+
+// Function for the Gaussian elimination
+void SerialGaussianElimination(double* pMatrix,double* pVector,int Size) {
+    int Iter; // Number of the iteration of the Gaussian elimination
+    int PivotRow; // Number of the current pivot row
+
+    for (Iter=0; Iter<Size; Iter++) {
+        // Finding the pivot row
+        PivotRow = FindPivotRow(pMatrix, Size, Iter);
+        pSerialPivotPos[Iter] = PivotRow;
+        pSerialPivotIter[PivotRow] = Iter;
+        SerialColumnElimination(pMatrix, pVector, PivotRow, Iter, Size);
+    }
+}
+
+// Function for the back substution
+void SerialBackSubstitution (double* pMatrix, double* pVector,
+double* pResult, int Size) {
+    int RowIndex, Row;
+
+    for (int i=Size-1; i>=0; i--) {
+        RowIndex = pSerialPivotPos[i];
+        pResult[i] = pVector[RowIndex]/pMatrix[Size*RowIndex+i];
+
+        for (int j=0; j<i; j++) {
+            Row = pSerialPivotPos[j];
+            pVector[j] -= pMatrix[Row*Size+i]*pResult[i];
+            pMatrix[Row*Size+i] = 0;
+        }
+    }
+}
+
+// Function for the execution of the Gauss algorithm
+void SerialResultCalculation(double* pMatrix, double* pVector,
+double* pResult, int Size) {
+    // Memory allocation
+    pSerialPivotPos = new int [Size];
+    pSerialPivotIter = new int [Size];
+
+    for (int i=0; i<Size; i++) {
+        pSerialPivotIter[i] = -1;
+    }
+
+    // Gaussian elimination
+    SerialGaussianElimination (pMatrix, pVector, Size);
+
+    // Back substitution
+    SerialBackSubstitution (pMatrix, pVector, pResult, Size);
+
+    // Memory deallocation
+    delete [] pSerialPivotPos;
+    delete [] pSerialPivotIter;
+}
+
+// Function for computational process termination
+void ProcessTermination (double* pMatrix,double* pVector,double* pResult) {
+    delete [] pMatrix;
+    delete [] pVector;
+    delete [] pResult;
+}
