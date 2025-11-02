@@ -382,9 +382,9 @@ int Size) {
      double* pProcResult; // Part of the result vector located on the process
      int Size; // Sizes of the initial matrix and the vector
      int RowNum; // Number of rows located on the process
-     time_t start, finish;
+     // time_t start, finish; // Цей рядок більше не потрібен
      double duration;
-
+     double start, finish; // MPI_Wtime() повертає double
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
     MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
@@ -395,20 +395,29 @@ int Size) {
     // Memory allocation and definition of objects' elements
     ProcessInitialization(pMatrix, pVector, pResult, pProcRows,
     pProcVector, pProcResult, Size, RowNum);
+    
+    MPI_Barrier(MPI_COMM_WORLD);
 
+    // Початок вимірювання часу (ПЕРЕД розподілом даних)
+    start = MPI_Wtime();
     // Data distribution among the processes
     DataDistribution(pMatrix, pProcRows, pVector, pProcVector, Size, RowNum);
 
     // TestDistribution(pMatrix, pVector, pProcRows, pProcVector, Size, RowNum);
 
     // The parallel Gauss algorithm execution
-    start = clock();
+    //start = clock();
     ParallelResultCalculation(pProcRows, pProcVector, pProcResult, Size, RowNum);
-    finish = clock();
-    duration = double(finish - start) / CLOCKS_PER_SEC;
+    /*finish = clock();
+    duration = double(finish - start) / CLOCKS_PER_SEC;*/
 
     // Gathering the result vector
     ResultCollection(pProcResult, pResult);
+    
+    finish = MPI_Wtime();
+
+    // Розрахунок тривалості
+    duration = finish - start;
 
     if (ProcRank == 0) {
         printf("\nTime of execution: %f seconds \n", duration);
