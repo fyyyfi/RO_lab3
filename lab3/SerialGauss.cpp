@@ -187,3 +187,39 @@ void ProcessTermination (double* pMatrix,double* pVector,double* pResult) {
     delete [] pVector;
     delete [] pResult;
 }
+
+ int main() {
+     double* pMatrix; // Matrix of the linear system
+     double* pVector; // Right parts of the linear system
+     double* pResult; // Result vector
+     int Size; // Sizes of the initial matrix and the vector
+     time_t start, finish;
+     double duration;
+
+    printf("Serial Gauss algorithm for solving linear systems\n");
+
+//     // Memory allocation and definition of objects' elements
+     ProcessInitialization(pMatrix, pVector, pResult, Size);
+
+//     // The matrix and the vector output
+//     printf ("Initial Matrix \n");
+//     PrintMatrix(pMatrix, Size, Size);
+//     printf("Initial Vector \n");
+//     PrintVector(pVector, Size);
+
+     // Execution of the Gauss algorithm
+     start = clock();
+    SerialResultCalculation(pMatrix, pVector, pResult, Size);
+    finish = clock();
+    duration = (finish-start)/double(CLOCKS_PER_SEC);
+
+//     // Printing the result vector
+//     printf ("\n Result Vector: \n");
+//     PrintVector(pResult, Size);
+
+     // Printing the execution time of the Gauss method
+     printf("\n Time of execution: %f\n", duration);
+
+     // Computational process termination
+     ProcessTermination(pMatrix, pVector, pResult);
+ }
