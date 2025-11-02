@@ -287,3 +287,145 @@ double* pProcResult, int Size, int RowNum) {
         }
     }
 }
+
+// Function for testing the data distribution
+void TestDistribution(double* pMatrix, double* pVector, double* pProcRows,
+double* pProcVector, int Size, int RowNum) {
+    if (ProcRank == 0) {
+        printf("Initial Matrix: \n");
+        PrintMatrix(pMatrix, Size, Size);
+        printf("Initial Vector: \n");
+        PrintVector(pVector, Size);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    for (int i=0; i<ProcNum; i++) {
+        if (ProcRank == i) {
+            printf("\nProcRank = %d \n", ProcRank);
+            printf(" Matrix Stripe:\n");
+            PrintMatrix(pProcRows, RowNum, Size);
+            printf(" Vector: \n");
+            PrintVector(pProcVector, RowNum);
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+}
+
+// Function for the execution of the parallel Gauss algorithm
+void ParallelResultCalculation(double* pProcRows, double* pProcVector,
+double* pProcResult, int Size, int RowNum) {
+    ParallelGaussianElimination (pProcRows, pProcVector, Size, RowNum);
+    ParallelBackSubstitution (pProcRows, pProcVector, pProcResult, Size, RowNum);
+}
+
+// Function for computational process termination
+void ProcessTermination (double* pMatrix, double* pVector, double* pResult,
+double* pProcRows, double* pProcVector, double* pProcResult) {
+    if (ProcRank == 0) {
+        delete [] pMatrix;
+        delete [] pVector;
+        delete [] pResult;
+    }
+    delete [] pProcRows;
+    delete [] pProcVector;
+    delete [] pProcResult;
+    delete [] pParallelPivotPos;
+    delete [] pProcPivotIter;
+    delete [] pProcInd;
+    delete [] pProcNum;
+}
+
+void TestResult(double* pMatrix, double* pVector, double* pResult,
+int Size) {
+    /* Buffer for storing the vector, that is a result of multiplication
+    of the linear system matrix by the vector of unknowns */
+    double* pRightPartVector;
+
+    // Flag, that shows wheather the right parts vectors are identical or not
+    int equal = 0;
+    double Accuracy = 1.e-6; // Comparison accuracy
+
+    if (ProcRank == 0) {
+        pRightPartVector = new double [Size];
+
+        for (int i=0; i<Size; i++) {
+            pRightPartVector[i] = 0;
+            for (int j=0; j<Size; j++) {
+                pRightPartVector[i] +=
+                pMatrix[i*Size+j]*pResult[pParallelPivotPos[j]];
+            }
+        }
+
+        for (int i=0; i<Size; i++) {
+            if (fabs(pRightPartVector[i]-pVector[i]) > Accuracy)
+                equal = 1;
+        }
+
+        if (equal == 1)
+            printf("The result of the parallel Gauss algorithm is NOT correct."
+            "Check your code.");
+        else
+            printf("The result of the parallel Gauss algorithm is correct.");
+
+        delete [] pRightPartVector;
+    }
+}
+ 
+ int main(int argc, char* argv[]) {
+     double* pMatrix; // Matrix of the linear system
+     double* pVector; // Right parts of the linear system
+     double* pResult; // Result vector
+     double* pProcRows; // Stripe of the matrix located on the process
+     double* pProcVector; // Part of the right parts vector located on the process
+     double* pProcResult; // Part of the result vector located on the process
+     int Size; // Sizes of the initial matrix and the vector
+     int RowNum; // Number of rows located on the process
+     time_t start, finish;
+     double duration;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+    if (ProcRank == 0)
+        printf("Parallel Gauss algorithm for solving linear systems\n");
+
+    // Memory allocation and definition of objects' elements
+    ProcessInitialization(pMatrix, pVector, pResult, pProcRows,
+    pProcVector, pProcResult, Size, RowNum);
+
+    // Data distribution among the processes
+    DataDistribution(pMatrix, pProcRows, pVector, pProcVector, Size, RowNum);
+
+    // TestDistribution(pMatrix, pVector, pProcRows, pProcVector, Size, RowNum);
+
+    // The parallel Gauss algorithm execution
+    start = clock();
+    ParallelResultCalculation(pProcRows, pProcVector, pProcResult, Size, RowNum);
+    finish = clock();
+    duration = double(finish - start) / CLOCKS_PER_SEC;
+
+    // Gathering the result vector
+    ResultCollection(pProcResult, pResult);
+
+    if (ProcRank == 0) {
+        printf("\nTime of execution: %f seconds \n", duration);
+
+        // The result vector output
+       /* printf("Result Vector: \n");
+        PrintResultVector(pResult, Size);
+        printf("\n");*/
+
+        // Testing the result
+        TestResult(pMatrix, pVector, pResult, Size);
+        printf("\n");
+    }
+
+    // Computational process termination
+    ProcessTermination(pMatrix, pVector, pResult,
+    pProcRows, pProcVector, pProcResult);
+
+    MPI_Finalize();
+}
